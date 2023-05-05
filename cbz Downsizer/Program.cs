@@ -7,27 +7,39 @@ using SixLabors.ImageSharp.Processing;
 using System.IO.Compression;
 using System.Collections.Generic;
 
-namespace CBZ_Resizer
+namespace CBZ_Downsizer
 {
     class Program
     {
         static void Main(string[] args)
         {
-            string oldLocation = "C:\\Coding\\Git\\CBZ Resizer\\CBZ Resizer\\Resources\\CBZ'S\\Bleach.cbz";
-            string newLocation = "C:\\Coding\\Git\\CBZ Resizer\\CBZ Resizer\\Resources\\CBZ'S\\BleachNew.cbz";
-            Cbz cbz = new Cbz(oldLocation, newLocation, 2);
-            cbz.Save();
-
-        }
-        
-        public static string RemoveQuotes(string str)
-        {
-            if (str[0]== '"') 
+            Console.WriteLine("please enter the path of the main folder where all of your cbz's are");
+            string InitialDirectory = Console.ReadLine();
+            Console.WriteLine("please enter the folder where you want all of your new cbz's");
+            string newDirectory=Console.ReadLine();
+            string[] files= Directory.GetFiles(InitialDirectory);
+            Console.WriteLine("please enter your resize ration");
+            double ratio = double.Parse(Console.ReadLine());
+            foreach(string file in files)
             {
-                str=str.Substring(1, str.Length - 2);
+                string fileName=Path.GetFileName(file);
+                CreateNewCbz(file, newDirectory, ratio, fileName);
             }
+
+                
             
-            return str;
         }
+        static void CreateNewCbz(string oldLocation,string newLocation, double ResizeRatio,string name)
+        {
+            using (FileStream newFile = new FileStream(Path.Combine(newLocation,name), FileMode.Create))
+            {
+                using (ZipArchive archive = new ZipArchive(newFile, ZipArchiveMode.Update))
+                {
+                    Cbz cbz = new Cbz(oldLocation, 1.5, archive);
+                }
+            }
+        }
+
+
     }
 }

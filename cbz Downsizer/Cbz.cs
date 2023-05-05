@@ -10,34 +10,27 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using System.Xml.Linq;
 using System.Resources;
+using System.Diagnostics;
+using System.Buffers;
 
 namespace CBZ_Downsizer 
 {
     internal class Cbz
     {
         public string PreviousFilePath { get; private set; }
-        public string NewFilePath { get; private set; }
         public ZipArchive PreviousCbz;
         public ZipArchive NewCbz;
         public double ResizeRatio;
-        private FileStream fileStream;
 
-        public Cbz(string previousFilePath, string newFilePath, int resizeRatio)
+        public Cbz(string previousFilePath, double resizeRatio,ZipArchive newArchive)
         {
-            fileStream = new FileStream(newFilePath, FileMode.Create);
             PreviousFilePath = previousFilePath;
-            NewFilePath = newFilePath;
             PreviousCbz = ZipFile.Open(previousFilePath, ZipArchiveMode.Read);
-            NewCbz = new ZipArchive(fileStream, ZipArchiveMode.Update);
-            CopyCbzStructure();
+            NewCbz = newArchive;
             ResizeRatio = resizeRatio;
-
-        }
-        public void Save()
-        {
             ResizeCBZ();
-
         }
+
         private void ResizeCBZ()
         {
             List<string> ImageExtensions = new List<string> { ".JPG", ".JPEG", ".JPE", ".BMP", ".GIF", ".PNG" };
@@ -52,12 +45,19 @@ namespace CBZ_Downsizer
                     }
                     else
                     {
-                        using (Stream data = entry.Open())
+                        using (BufferedStream data = new BufferedStream(entry.Open()))
                         {
-                            data.CopyTo(NewCbz.GetEntry(entry.FullName).Open());
+                            using (BufferedStream newEntryStream = new BufferedStream(NewCbz.CreateEntry(entry.FullName).Open()))
+                            {
+                                data.Position = 0;
+                                data.CopyTo(newEntryStream);
+                            } 
 
                         }
                     }
+                }
+                else
+                {
                 }
 
 
@@ -66,37 +66,24 @@ namespace CBZ_Downsizer
         }
         void ResizeAndSave(Image image, ZipArchiveEntry oldEntry)
         {
-            ZipArchiveEntry newEntry = NewCbz.GetEntry(oldEntry.FullName.Replace(Path.GetExtension(oldEntry.FullName), ".jpeg"));
+            ZipArchiveEntry newEntry = NewCbz.CreateEntry(oldEntry.FullName.Replace(Path.GetExtension(oldEntry.FullName), ".jpeg"));
             if(newEntry != null)
             {
                 image.Mutate(x => x.Resize(new Size(Convert.ToInt32(Convert.ToDouble(image.Width) / ResizeRatio), 0)));
-                MemoryStream buffer = new MemoryStream();
-                Console.WriteLine(newEntry.FullName);
-                image.SaveAsJpeg(buffer);
-                Stream stream = newEntry.Open();
-                buffer.Seek(0, SeekOrigin.Begin);
-                buffer.CopyTo(stream);
-                stream.Close();
-            }
-
-
-        }
-        private void CopyCbzStructure()
-        {
-            foreach (ZipArchiveEntry entry in PreviousCbz.Entries)
-            {
-                if (Path.GetExtension(entry.FullName) != null && Path.GetExtension(entry.FullName) != "")
+                using (BufferedStream buffer = new BufferedStream(newEntry.Open()))
                 {
-                    NewCbz.CreateEntry(entry.FullName.Replace(Path.GetExtension(entry.FullName), ".jpeg"));
-                    Console.WriteLine(entry.FullName.Replace(Path.GetExtension(entry.FullName), ".jpeg"));
+                    image.SaveAsJpeg(buffer);
+                    Console.WriteLine(newEntry.FullName);
                 }
-                else NewCbz.CreateEntry(entry.FullName);
-
 
             }
         }
-    }
+
+
+        }
+      
+}
     
         
     
-}
+
